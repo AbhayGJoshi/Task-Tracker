@@ -1,0 +1,94 @@
+.btnsidefill {
+  position: relative;
+  padding: 12px 30px;
+  background: white;
+  border: 2px solid #3498db;
+  color: #3498db;
+  font-size: 16px;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.btnsidefill::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 0;
+  height: 100%;
+
+  background: #3498db;
+
+  transition: width 0.5s ease;
+
+  z-index: -1;
+}
+
+.btnsidefill:hover::before {
+  width: 100%;
+}
+
+.btnsidefill:hover {
+  color: white;
+}
+
+.btnneon {
+  padding: 12px 30px;
+  background: #222;
+  border: 2px solid #00ffff;
+  color: #00ffff;
+  font-size: 16px;
+  cursor: pointer;
+
+  transition: box-shadow 0.3s ease;
+}
+
+.btnneon:hover {
+  box-shadow:
+    0 0 5px #00ffff,
+    0 0 10px #00ffff,
+    0 0 20px #00ffff,
+    0 0 40px #00ffff;
+}
+
+.btnslide {
+  position: relative;
+  padding: 12px 30px;
+  background: #222;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  overflow: hidden;
+}
+
+/* Top and bottom lines */
+.btnslide::before,
+.btnslide::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 2px;
+  background: #00ffff;
+  transition: width 0.5s ease;
+}
+
+/* Top: starts from LEFT */
+.btnslide::before {
+  top: 0;
+  left: 0;
+}
+
+/* Bottom: starts from RIGHT */
+.btnslide::after {
+  bottom: 0;
+  right: 0;
+}
+
+/* Hover */
+.btnslide:hover::before,
+.btnslide:hover::after {
+  width: 100%;
+}

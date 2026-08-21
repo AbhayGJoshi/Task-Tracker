@@ -1,0 +1,28 @@
+npm create vite@latest Task-Tracker -- --template react-ts
+
+cd E:\Task-Tracker
+
+npm install
+
+npm install --save-dev electron@43.4.0
+
+npm list electron
+
+node node_modules\electron\install.js
+
+Test-Path node_modules\electron\dist\electron.exe
+
+.\node_modules\.bin\electron.cmd --version
+
+Terminal 1 — React/Vite
+cd E:\Task-Tracker
+npm run dev
+
+Terminal 2 — Electron
+cd E:\Task-Tracker
+npm run electron
+
+Next step: install SQLite support
+npm list better-sqlite3
+Create this file:
+E:\Task-Tracker\electron\database.cjs
