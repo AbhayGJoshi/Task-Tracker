@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./index.css";
-import type { Priority, Task, TaskStatus } from "./types";
+import type { Priority, Task, TaskStatus, TaskUpdate } from "./types";
 
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -12,6 +12,11 @@ function App() {
   const [deletingTask, setDeletingTask] = useState<Task | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState("");
+  const [updates, setUpdates] = useState<TaskUpdate[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [updateText, setUpdateText] = useState("");
+  const [editingUpdate, setEditingUpdate] = useState<TaskUpdate | null>(null);
+  const [deletingUpdate, setDeletingUpdate] = useState<TaskUpdate | null>(null);
 
   useEffect(() => {
     async function loadTasks() {
@@ -33,6 +38,16 @@ function App() {
   const pendingTasks = tasks.filter((task) => !task.completed).length;
 
   const completedTasks = tasks.filter((task) => task.completed).length;
+
+  function getTodayDate() {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
 
   async function addTask() {
     const title = taskTitle.trim();
@@ -59,6 +74,133 @@ function App() {
     }
   }
 
+  async function loadTaskUpdates(taskId: number) {
+    try {
+      const result = await window.taskAPI.getTaskUpdates(taskId);
+      setUpdates(result);
+    } catch (error) {
+      console.error("Failed to load task updates:", error);
+    }
+  }
+
+  async function openUpdates(task: Task) {
+    setSelectedTask(task);
+    setUpdateText("");
+    setEditingUpdate(null);
+    setDeletingUpdate(null);
+
+    await loadTaskUpdates(task.id);
+  }
+
+  function closeUpdates() {
+    setSelectedTask(null);
+    setUpdates([]);
+    setUpdateText("");
+    setEditingUpdate(null);
+    setDeletingUpdate(null);
+  }
+
+  async function addTaskUpdate() {
+    if (!selectedTask || !updateText.trim()) return;
+
+    await window.taskAPI.addTaskUpdate(selectedTask.id, updateText.trim());
+
+    setUpdateText("");
+
+    // Refresh updates
+    const refreshedUpdates = await window.taskAPI.getTaskUpdates(
+      selectedTask.id,
+    );
+
+    setUpdates(refreshedUpdates);
+
+    // Refresh tasks so the card gets the new Updated timestamp
+    const refreshedTasks = await window.taskAPI.getTasks();
+
+    setTasks(refreshedTasks);
+
+    // Refresh selected task as well
+    const refreshedTask = refreshedTasks.find(
+      (task) => task.id === selectedTask.id,
+    );
+
+    if (refreshedTask) {
+      setSelectedTask(refreshedTask);
+    }
+  }
+
+  function startEditUpdate(update: TaskUpdate) {
+    setEditingUpdate(update);
+    setUpdateText(update.update_text);
+  }
+
+  async function saveEditedUpdate() {
+    if (!editingUpdate || !updateText.trim() || !selectedTask) {
+      return;
+    }
+
+    await window.taskAPI.updateTaskUpdate(editingUpdate.id, updateText.trim());
+
+    // Refresh updates
+    const refreshedUpdates = await window.taskAPI.getTaskUpdates(
+      selectedTask.id,
+    );
+
+    setUpdates(refreshedUpdates);
+
+    // Refresh tasks so Updated timestamp changes on the card
+    const refreshedTasks = await window.taskAPI.getTasks();
+
+    setTasks(refreshedTasks);
+
+    // Update selected task as well
+    const refreshedTask = refreshedTasks.find(
+      (task) => task.id === selectedTask.id,
+    );
+
+    if (refreshedTask) {
+      setSelectedTask(refreshedTask);
+    }
+
+    // Clear edit mode
+    setEditingUpdate(null);
+    setUpdateText("");
+  }
+  async function confirmDeleteUpdate() {
+    if (!deletingUpdate || !selectedTask) {
+      return;
+    }
+
+    try {
+      const success = await window.taskAPI.deleteTaskUpdate(deletingUpdate.id);
+
+      if (!success) {
+        return;
+      }
+
+      setUpdates((current) =>
+        current.filter((update) => update.id !== deletingUpdate.id),
+      );
+
+      setDeletingUpdate(null);
+
+      // Refresh tasks so the card gets the new Updated timestamp
+      const refreshedTasks = await window.taskAPI.getTasks();
+
+      setTasks(refreshedTasks);
+
+      // Also refresh the selected task inside the Updates modal
+      const refreshedTask = refreshedTasks.find(
+        (task) => task.id === selectedTask.id,
+      );
+
+      if (refreshedTask) {
+        setSelectedTask(refreshedTask);
+      }
+    } catch (error) {
+      console.error("Failed to delete task update:", error);
+    }
+  }
   async function toggleTask(id: number) {
     try {
       const result = await window.taskAPI.toggleTask(id);
@@ -372,6 +514,14 @@ function App() {
                       </div>
                     )}
                   </div>
+                  <div className="task-updates-column">
+                    <button
+                      className="updates-button"
+                      onClick={() => openUpdates(task)}
+                    >
+                      📝 Updates
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -444,7 +594,10 @@ function App() {
             <div className="modal-actions">
               <button
                 className="cancel-button"
-                onClick={() => setShowAddTask(false)}
+                onClick={() => {
+                  setDueDate(getTodayDate());
+                  setShowAddTask(true);
+                }}
               >
                 Cancel
               </button>
@@ -561,6 +714,142 @@ function App() {
                 disabled={!editingTask.title.trim()}
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedTask && (
+        <div className="modal-overlay" onClick={closeUpdates}>
+          <div
+            className="modal updates-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>Task Updates</h2>
+                <p>{selectedTask.title}</p>
+              </div>
+
+              <button className="modal-close" onClick={closeUpdates}>
+                ×
+              </button>
+            </div>
+
+            <div className="updates-list">
+              {updates.length === 0 ? (
+                <p className="no-updates">
+                  No updates yet. Add the first update below.
+                </p>
+              ) : (
+                updates.map((update) => (
+                  <div className="update-item" key={update.id}>
+                    <div className="update-content">
+                      <p>{update.update_text}</p>
+
+                      <span className="update-date">
+                        {formatDate(update.created_at)}
+                      </span>
+                    </div>
+
+                    <div className="update-actions">
+                      <button
+                        className="update-edit-button"
+                        onClick={() => startEditUpdate(update)}
+                      >
+                        ✏
+                      </button>
+
+                      <button
+                        className="update-delete-button"
+                        onClick={() => setDeletingUpdate(update)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="form-group update-input-group">
+              <label htmlFor="task-update">
+                {editingUpdate ? "Edit Update" : "Add Update"}
+              </label>
+
+              <textarea
+                id="task-update"
+                placeholder="Enter task update..."
+                value={updateText}
+                onChange={(event) => setUpdateText(event.target.value)}
+                rows={4}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="cancel-button"
+                onClick={() => {
+                  if (editingUpdate) {
+                    setEditingUpdate(null);
+                    setUpdateText("");
+                  } else {
+                    closeUpdates();
+                  }
+                }}
+              >
+                {editingUpdate ? "Cancel Edit" : "Close"}
+              </button>
+
+              <button
+                className="save-button"
+                onClick={editingUpdate ? saveEditedUpdate : addTaskUpdate}
+                disabled={!updateText.trim()}
+              >
+                {editingUpdate ? "Save Update" : "Add Update"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingUpdate && (
+        <div className="modal-overlay" onClick={() => setDeletingUpdate(null)}>
+          <div
+            className="modal delete-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>Delete Update</h2>
+                <p>Are you sure you want to delete this update?</p>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() => setDeletingUpdate(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="delete-message">
+              <strong>"{deletingUpdate.update_text}"</strong>
+
+              <p>This action cannot be undone.</p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="cancel-button"
+                onClick={() => setDeletingUpdate(null)}
+              >
+                Cancel
+              </button>
+
+              <button className="delete-button" onClick={confirmDeleteUpdate}>
+                Delete Update
               </button>
             </div>
           </div>

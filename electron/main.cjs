@@ -8,6 +8,12 @@ const {
   updateTask,
   updateTaskStatus,
   deleteTask,
+
+  // Task Updates
+  getTaskUpdates,
+  addTaskUpdate,
+  updateTaskUpdate,
+  deleteTaskUpdate,
 } = require("./database.cjs");
 
 let mainWindow;
@@ -26,10 +32,16 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:5173");
+  if (!app.isPackaged) {
+    // Development
+    mainWindow.loadURL("http://localhost:5173");
 
-  // Development only
-  mainWindow.webContents.openDevTools();
+    // Development only
+    mainWindow.webContents.openDevTools();
+  } else {
+    // Production / Installed application
+    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+  }
 }
 
 /*
@@ -40,17 +52,9 @@ ipcMain.handle("tasks:get", () => {
   return getTasks();
 });
 
-
-ipcMain.handle(
-  "tasks:add",
-  (_event, { title, priority, dueDate }) => {
-    return addTask(
-      title,
-      priority,
-      dueDate,
-    );
-  },
-);
+ipcMain.handle("tasks:add", (_event, { title, priority, dueDate }) => {
+  return addTask(title, priority, dueDate);
+});
 
 ipcMain.handle("tasks:toggle", (_event, id) => {
   return toggleTask(id);
@@ -67,6 +71,23 @@ ipcMain.handle("tasks:update", (_event, { id, title, priority }) => {
 ipcMain.handle("tasks:delete", (_event, id) => {
   return deleteTask(id);
 });
+
+ipcMain.handle("task-updates:get", (_event, taskId) => {
+  return getTaskUpdates(taskId);
+});
+
+ipcMain.handle("task-updates:add", (_event, { taskId, updateText }) => {
+  return addTaskUpdate(taskId, updateText);
+});
+
+ipcMain.handle("task-updates:update", (_event, { updateId, updateText }) => {
+  return updateTaskUpdate(updateId, updateText);
+});
+
+ipcMain.handle("task-updates:delete", (_event, updateId) => {
+  return deleteTaskUpdate(updateId);
+});
+
 /*
  * Application lifecycle
  */

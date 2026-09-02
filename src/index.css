@@ -706,4 +706,210 @@ select {
   .task-list {
     grid-template-columns: 1fr;
   }
+  /* =========================================================
+   TASK UPDATES
+   ========================================================= */
+
+  .task-updates-column {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding-top: 2px;
+  }
+
+  .updates-button {
+    padding: 7px 11px;
+    border: 1px solid #dbeafe;
+    border-radius: 7px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .updates-button:hover {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+  }
+
+  /* =========================================================
+   UPDATES MODAL
+   ========================================================= */
+
+  .updates-modal {
+    width: 620px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .update-input-section {
+    padding: 15px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+  }
+
+  .update-input-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .update-textarea {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    color: #1f2937;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+  }
+
+  .update-textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .update-input-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  /* =========================================================
+   UPDATE HISTORY
+   ========================================================= */
+
+  .updates-history {
+    margin-top: 22px;
+  }
+
+  .updates-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .updates-history-header h3 {
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .updates-history-header span {
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .updates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .update-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+  }
+
+  .update-item:hover {
+    border-color: #cbd5e1;
+  }
+
+  .update-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .update-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .update-text {
+    color: #1f2937;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .update-time {
+    margin-top: 5px;
+    color: #9ca3af;
+    font-size: 11px;
+  }
+
+  .update-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .update-edit-button,
+  .update-delete-button {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .update-edit-button:hover {
+    background: #eff6ff;
+  }
+
+  .update-delete-button {
+    color: #dc2626;
+  }
+
+  .update-delete-button:hover {
+    background: #fef2f2;
+  }
+
+  .no-updates {
+    padding: 25px;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    color: #9ca3af;
+    text-align: center;
+    font-size: 13px;
+  }
+  @media (max-width: 700px) {
+    .task-card {
+      flex-wrap: wrap;
+    }
+
+    .task-updates-column {
+      width: 100%;
+      margin-left: 37px;
+    }
+
+    .updates-modal {
+      width: 95vw;
+    }
+  }
 }

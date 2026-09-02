@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("taskAPI", {
+  // =========================
+  // TASK APIs
+  // =========================
+
   getTasks: () => ipcRenderer.invoke("tasks:get"),
 
   addTask: (title, priority, dueDate) =>
@@ -26,4 +30,25 @@ contextBridge.exposeInMainWorld("taskAPI", {
     }),
 
   deleteTask: (id) => ipcRenderer.invoke("tasks:delete", id),
+
+  // =========================
+  // TASK UPDATE APIs
+  // =========================
+
+  getTaskUpdates: (taskId) => ipcRenderer.invoke("task-updates:get", taskId),
+
+  addTaskUpdate: (taskId, updateText) =>
+    ipcRenderer.invoke("task-updates:add", {
+      taskId,
+      updateText,
+    }),
+
+  updateTaskUpdate: (updateId, updateText) =>
+    ipcRenderer.invoke("task-updates:update", {
+      updateId,
+      updateText,
+    }),
+
+  deleteTaskUpdate: (updateId) =>
+    ipcRenderer.invoke("task-updates:delete", updateId),
 });
