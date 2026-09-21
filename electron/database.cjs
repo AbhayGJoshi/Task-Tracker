@@ -119,9 +119,31 @@ function getTasks() {
         completed,
         created_at,
         updated_at,
-        due_date
+        due_date,
+        (
+          SELECT update_text
+          FROM task_updates
+          WHERE task_updates.task_id = tasks.id
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) AS latest_update_text,
+        (
+          SELECT created_at
+          FROM task_updates
+          WHERE task_updates.task_id = tasks.id
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) AS latest_update_created_at
       FROM tasks
-      ORDER BY id DESC
+      ORDER BY
+        CASE status
+          WHEN 'Pending' THEN 1
+          WHEN 'In Progress' THEN 2
+          WHEN 'Cancelled' THEN 3
+          WHEN 'Completed' THEN 4
+          ELSE 5
+        END,
+        id DESC
     `,
     )
     .all()
@@ -149,7 +171,21 @@ function getTask(id) {
         completed,
         created_at,
         updated_at,
-        due_date
+        due_date,
+        (
+          SELECT update_text
+          FROM task_updates
+          WHERE task_updates.task_id = tasks.id
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) AS latest_update_text,
+        (
+          SELECT created_at
+          FROM task_updates
+          WHERE task_updates.task_id = tasks.id
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) AS latest_update_created_at
       FROM tasks
       WHERE id = ?
     `,
@@ -172,7 +208,22 @@ function getTask(id) {
  * =========================================================
  */
 
-function addTask(title, priority, dueDate) {
+function normalizeDateTime(value) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function addTask(title, priority, dueDate, createdAt, status = "Pending") {
+  const safeStatus = ["Pending", "In Progress", "Completed", "Cancelled"].includes(status)
+    ? status
+    : "Pending";
+  const created = normalizeDateTime(createdAt) || new Date().toISOString().slice(0, 19).replace("T", " ");
+  const completed = safeStatus === "Completed" ? 1 : 0;
+
   const statement = db.prepare(`
     INSERT INTO tasks (
       title,
@@ -183,18 +234,17 @@ function addTask(title, priority, dueDate) {
       updated_at,
       due_date
     )
-    VALUES (
-      ?,
-      ?,
-      'Pending',
-      0,
-      CURRENT_TIMESTAMP,
-      CURRENT_TIMESTAMP,
-      ?
-    )
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
   `);
 
-  const result = statement.run(title, priority, dueDate || null);
+  const result = statement.run(
+    title,
+    priority,
+    safeStatus,
+    completed,
+    created,
+    dueDate || null,
+  );
 
   return getTask(result.lastInsertRowid);
 }
@@ -258,17 +308,19 @@ function toggleTask(id) {
  * =========================================================
  */
 
-function updateTask(id, title, priority) {
+function updateTask(id, title, priority, createdAt) {
+  const created = normalizeDateTime(createdAt);
   const statement = db.prepare(`
     UPDATE tasks
     SET
       title = ?,
       priority = ?,
+      created_at = COALESCE(?, created_at),
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `);
 
-  const result = statement.run(title, priority, id);
+  const result = statement.run(title, priority, created, id);
 
   if (result.changes === 0) {
     return null;

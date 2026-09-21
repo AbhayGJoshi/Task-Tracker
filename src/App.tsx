@@ -17,6 +17,12 @@ function App() {
   const [updateText, setUpdateText] = useState("");
   const [editingUpdate, setEditingUpdate] = useState<TaskUpdate | null>(null);
   const [deletingUpdate, setDeletingUpdate] = useState<TaskUpdate | null>(null);
+  const [activeView, setActiveView] = useState<"Dashboard" | "Tasks" | "Today" | "Categories">("Dashboard");
+  const [createdAt, setCreatedAt] = useState("");
+  const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>("Pending");
+  const [categoryFilter, setCategoryFilter] = useState<Priority | null>(null);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "All">("All");
 
   useEffect(() => {
     async function loadTasks() {
@@ -38,6 +44,60 @@ function App() {
   const pendingTasks = tasks.filter((task) => !task.completed).length;
 
   const completedTasks = tasks.filter((task) => task.completed).length;
+
+  // Keep active work at the top and completed work at the bottom.
+  // Within the same status, newer tasks remain first.
+  const statusOrder: Record<TaskStatus, number> = {
+    Pending: 1,
+    "In Progress": 2,
+    Cancelled: 3,
+    Completed: 4,
+  };
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const statusDifference = statusOrder[a.status] - statusOrder[b.status];
+
+    if (statusDifference !== 0) {
+      return statusDifference;
+    }
+
+    return b.id - a.id;
+  });
+
+  const todayKey = new Date().toLocaleDateString("en-CA");
+
+  function taskDateKey(value: string) {
+    const date = new Date(value.replace(" ", "T") + (value.endsWith("Z") ? "" : "Z"));
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-CA");
+  }
+
+  const visibleTasks = sortedTasks.filter((task) => {
+    if (activeView === "Today" && taskDateKey(task.due_date || "") !== todayKey) {
+      return false;
+    }
+
+    if (activeView === "Tasks") {
+      if (categoryFilter && task.priority !== categoryFilter) return false;
+      if (statusFilter !== "All" && task.status !== statusFilter) return false;
+      if (taskSearch.trim() && !task.title.toLowerCase().includes(taskSearch.trim().toLowerCase())) return false;
+    }
+
+    return true;
+  });
+
+  const viewTitles = {
+    Dashboard: "Dashboard",
+    Tasks: "All Tasks",
+    Today: "Today",
+    Categories: "Categories",
+  } as const;
+
+  function getDateTimeLocal(value?: string) {
+    const date = value ? new Date(value.replace(" ", "T") + (value.endsWith("Z") ? "" : "Z")) : new Date();
+    if (Number.isNaN(date.getTime())) return "";
+    const offset = date.getTimezoneOffset();
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+  }
 
   function getTodayDate() {
     const today = new Date();
@@ -61,6 +121,8 @@ function App() {
         title,
         priority,
         dueDate || null,
+        createdAt || null,
+        newTaskStatus,
       );
 
       setTasks((currentTasks) => [newTask, ...currentTasks]);
@@ -68,6 +130,8 @@ function App() {
       setTaskTitle("");
       setPriority("Medium");
       setDueDate("");
+      setCreatedAt("");
+      setNewTaskStatus("Pending");
       setShowAddTask(false);
     } catch (error) {
       console.error("Failed to add task:", error);
@@ -249,6 +313,7 @@ function App() {
         editingTask.id,
         title,
         editingTask.priority,
+        editingTask.created_at,
       );
 
       if (!result) {
@@ -306,16 +371,20 @@ function App() {
   }
 
   function formatDate(dateString: string) {
-    return new Date(dateString.replace(" ", "T") + "Z").toLocaleString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      },
-    );
+    if (!dateString) return "";
+    const normalized = dateString.endsWith("Z")
+      ? dateString
+      : dateString.replace(" ", "T") + "Z";
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) return "Invalid date";
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   return (
@@ -327,38 +396,34 @@ function App() {
         </div>
 
         <nav className="navigation">
-          <button className="nav-item active">
-            <span>⌂</span>
-            Dashboard
-          </button>
-
-          <button className="nav-item">
-            <span>☷</span>
-            Tasks
-          </button>
-
-          <button className="nav-item">
-            <span>▣</span>
-            Today
-          </button>
-
-          <button className="nav-item">
-            <span>★</span>
-            Important
-          </button>
-
-          <button className="nav-item">
-            <span>▦</span>
-            Categories
-          </button>
+          {([
+            ["Dashboard", "⌂"],
+            ["Tasks", "☷"],
+            ["Today", "▣"],
+            ["Categories", "▦"],
+          ] as const).map(([view, icon]) => (
+            <button
+              key={view}
+              className={`nav-item ${activeView === view ? "active" : ""}`}
+              onClick={() => {
+                setActiveView(view);
+                setCategoryFilter(null);
+                setStatusFilter("All");
+                setTaskSearch("");
+              }}
+            >
+              <span>{icon}</span>
+              {view}
+            </button>
+          ))}
         </nav>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
           <div>
-            <h1>Dashboard</h1>
-            <p>Manage your everyday tasks</p>
+            <h1>{viewTitles[activeView]}</h1>
+            <p>{activeView === "Dashboard" ? "Manage your everyday tasks" : "View and manage your tasks"}</p>
           </div>
 
           <div className="topbar-actions">
@@ -401,25 +466,69 @@ function App() {
         <section className="tasks-section">
           <div className="section-header">
             <div>
-              <h2>Today's Tasks</h2>
-              <p>Tasks that need your attention</p>
+              <h2>{activeView === "Dashboard" ? "Today's Tasks" : viewTitles[activeView]}</h2>
+              <p>{activeView === "Today" ? "Only tasks with a due date of today" : activeView === "Categories" ? "Browse tasks by priority" : categoryFilter ? `${categoryFilter} priority tasks` : activeView === "Tasks" ? "Your complete task list" : "A quick overview of your work"}</p>
             </div>
 
             <button
               className="add-task-button"
-              onClick={() => setShowAddTask(true)}
+              onClick={() => {
+                setCreatedAt(getDateTimeLocal());
+                setDueDate(getTodayDate());
+                setNewTaskStatus("Pending");
+                setShowAddTask(true);
+              }}
             >
               + Add Task
             </button>
           </div>
 
+          {activeView === "Tasks" && (
+            <div className="task-filters">
+              <div className="task-status-filters">
+                {(["All", "Pending", "In Progress", "Completed", "Cancelled"] as const).map((status) => (
+                  <button
+                    key={status}
+                    className={`filter-button ${statusFilter === status ? "active" : ""}`}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+              <input
+                className="task-search"
+                type="search"
+                placeholder="Search tasks..."
+                value={taskSearch}
+                onChange={(event) => setTaskSearch(event.target.value)}
+              />
+            </div>
+          )}
+
           <div className="task-list">
             {loading ? (
               <p>Loading tasks...</p>
-            ) : tasks.length === 0 ? (
-              <p>No tasks yet. Add your first task.</p>
+            ) : activeView === "Categories" ? (
+              <div className="category-grid">
+                {(["High", "Medium", "Low"] as Priority[]).map((category) => {
+                  const categoryTasks = sortedTasks.filter((task) => task.priority === category);
+                  return (
+                    <button className={`category-card category-${category.toLowerCase()}`} key={category} onClick={() => {
+                        setCategoryFilter(category);
+                        setActiveView("Tasks");
+                      }}>
+                      <span>{category}</span>
+                      <strong>{categoryTasks.length}</strong>
+                      <small>priority tasks</small>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : visibleTasks.length === 0 ? (
+              <p>{tasks.length === 0 ? "No tasks yet. Add your first task." : "No tasks match this view."}</p>
             ) : (
-              tasks.map((task) => (
+              visibleTasks.map((task) => (
                 <div
                   className={`task-card ${task.completed ? "completed" : ""}`}
                   key={task.id}
@@ -467,18 +576,28 @@ function App() {
 
                       <span>
                         🕐 Created:{" "}
-                        {new Date(
-                          task.created_at.replace(" ", "T"),
-                        ).toLocaleString()}
+                        {formatDate(task.created_at)}
                       </span>
 
                       <span>
                         🔄 Updated:{" "}
-                        {new Date(
-                          task.updated_at.replace(" ", "T"),
-                        ).toLocaleString()}
+                        {formatDate(task.updated_at)}
                       </span>
                     </div>
+
+                    {task.latest_update_text && (
+                      <div className="latest-update-preview">
+                        <span className="latest-update-label">↻</span>
+                        <span className="latest-update-text">
+                          {task.latest_update_text}
+                        </span>
+                        {task.latest_update_created_at && (
+                          <span className="latest-update-date">
+                            {formatDate(task.latest_update_created_at)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="task-menu-container">
@@ -565,6 +684,31 @@ function App() {
             </div>
 
             <div className="form-group">
+              <label htmlFor="task-created-at">Task Date / Created On</label>
+              <input
+                id="task-created-at"
+                type="datetime-local"
+                value={createdAt}
+                onChange={(event) => setCreatedAt(event.target.value)}
+              />
+              <small className="form-help">Use an earlier date when entering a task that was missed from tracking.</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="task-status">Status</label>
+              <select
+                id="task-status"
+                value={newTaskStatus}
+                onChange={(event) => setNewTaskStatus(event.target.value as TaskStatus)}
+              >
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <div className="form-group">
               <label htmlFor="task-priority">Priority</label>
 
               <select
@@ -594,10 +738,7 @@ function App() {
             <div className="modal-actions">
               <button
                 className="cancel-button"
-                onClick={() => {
-                  setDueDate(getTodayDate());
-                  setShowAddTask(true);
-                }}
+                onClick={() => setShowAddTask(false)}
               >
                 Cancel
               </button>
@@ -665,6 +806,21 @@ function App() {
                 <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="edit-task-created-at">Task Date / Created On</label>
+              <input
+                id="edit-task-created-at"
+                type="datetime-local"
+                value={getDateTimeLocal(editingTask.created_at)}
+                onChange={(event) =>
+                  setEditingTask({
+                    ...editingTask,
+                    created_at: event.target.value,
+                  })
+                }
+              />
             </div>
 
             <div className="form-group">

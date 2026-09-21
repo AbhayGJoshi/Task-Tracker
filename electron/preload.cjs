@@ -7,11 +7,13 @@ contextBridge.exposeInMainWorld("taskAPI", {
 
   getTasks: () => ipcRenderer.invoke("tasks:get"),
 
-  addTask: (title, priority, dueDate) =>
+  addTask: (title, priority, dueDate, createdAt, status) =>
     ipcRenderer.invoke("tasks:add", {
       title,
       priority,
       dueDate,
+      createdAt,
+      status,
     }),
 
   toggleTask: (id) => ipcRenderer.invoke("tasks:toggle", id),
@@ -22,11 +24,12 @@ contextBridge.exposeInMainWorld("taskAPI", {
       status,
     }),
 
-  updateTask: (id, title, priority) =>
+  updateTask: (id, title, priority, createdAt) =>
     ipcRenderer.invoke("tasks:update", {
       id,
       title,
       priority,
+      createdAt,
     }),
 
   deleteTask: (id) => ipcRenderer.invoke("tasks:delete", id),

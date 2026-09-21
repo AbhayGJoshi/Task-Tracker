@@ -11,6 +11,8 @@ export type Task = {
   created_at: string;
   updated_at: string;
   due_date: string | null;
+  latest_update_text: string | null;
+  latest_update_created_at: string | null;
 };
 
 export type TaskUpdate = {
@@ -29,6 +31,8 @@ declare global {
         title: string,
         priority: Priority,
         dueDate: string | null,
+        createdAt: string | null,
+        status: TaskStatus,
       ) => Promise<Task>;
 
       toggleTask: (id: number) => Promise<Task>;
@@ -39,6 +43,7 @@ declare global {
         id: number,
         title: string,
         priority: Priority,
+        createdAt: string,
       ) => Promise<Task>;
 
       deleteTask: (id: number) => Promise<boolean>;

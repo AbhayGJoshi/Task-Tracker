@@ -32,7 +32,7 @@ function createWindow() {
     },
   });
 
-  if (!app.isPackaged) {
+if (!app.isPackaged && !require("fs").existsSync(path.join(process.resourcesPath, "app", "dist", "index.html"))) {
     // Development
     mainWindow.loadURL("http://localhost:5173");
 
@@ -41,6 +41,7 @@ function createWindow() {
   } else {
     // Production / Installed application
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    mainWindow.webContents.openDevTools();
   }
 }
 
@@ -52,8 +53,8 @@ ipcMain.handle("tasks:get", () => {
   return getTasks();
 });
 
-ipcMain.handle("tasks:add", (_event, { title, priority, dueDate }) => {
-  return addTask(title, priority, dueDate);
+ipcMain.handle("tasks:add", (_event, { title, priority, dueDate, createdAt, status }) => {
+  return addTask(title, priority, dueDate, createdAt, status);
 });
 
 ipcMain.handle("tasks:toggle", (_event, id) => {
@@ -64,8 +65,8 @@ ipcMain.handle("tasks:status", (_event, { id, status }) => {
   return updateTaskStatus(id, status);
 });
 
-ipcMain.handle("tasks:update", (_event, { id, title, priority }) => {
-  return updateTask(id, title, priority);
+ipcMain.handle("tasks:update", (_event, { id, title, priority, createdAt }) => {
+  return updateTask(id, title, priority, createdAt);
 });
 
 ipcMain.handle("tasks:delete", (_event, id) => {
