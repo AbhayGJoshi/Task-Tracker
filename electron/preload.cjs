@@ -54,4 +54,14 @@ contextBridge.exposeInMainWorld("taskAPI", {
 
   deleteTaskUpdate: (updateId) =>
     ipcRenderer.invoke("task-updates:delete", updateId),
+
+  // =========================
+  // DATABASE APIs
+  // =========================
+
+  backupDatabase: () => ipcRenderer.invoke("database:backup"),
+
+  restoreDatabase: () => ipcRenderer.invoke("database:restore"),
+
+  resetDatabase: () => ipcRenderer.invoke("database:reset"),
 });

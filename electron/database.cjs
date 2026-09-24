@@ -12,7 +12,7 @@ if (!fs.existsSync(dataDirectory)) {
   });
 }
 
-const db = new Database(databasePath);
+let db = new Database(databasePath);
 
 db.pragma("journal_mode = WAL");
 
@@ -511,12 +511,126 @@ function deleteTaskUpdate(updateId) {
 
 /*
  * =========================================================
+ * DATABASE BACKUP
+ * =========================================================
+ */
+
+function resolveBackupRoot() {
+  const candidates = [
+    path.join("D:\\", "TaskTracker-Backups"),
+    path.join(app.getPath("documents"), "TaskTracker-Backups"),
+    path.join(dataDirectory, "backups"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+
+      const probe = path.join(candidate, ".write-test");
+      fs.writeFileSync(probe, "ok");
+      fs.unlinkSync(probe);
+
+      return candidate;
+    } catch {
+      // Try the next candidate
+    }
+  }
+
+  return path.join(dataDirectory, "backups");
+}
+
+async function backupDatabase() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+
+  const dateFolder = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+    now.getDate(),
+  )}`;
+  const timeStamp = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(
+    now.getSeconds(),
+  )}`;
+
+  const backupRoot = resolveBackupRoot();
+  const backupDirectory = path.join(backupRoot, dateFolder);
+
+  if (!fs.existsSync(backupDirectory)) {
+    fs.mkdirSync(backupDirectory, {
+      recursive: true,
+    });
+  }
+
+  const backupPath = path.join(
+    backupDirectory,
+    `TaskTracker-Backup-${timeStamp}.db`,
+  );
+
+  await db.backup(backupPath);
+
+  return backupPath;
+}
+
+/*
+ * =========================================================
+ * DATABASE RESTORE
+ * =========================================================
+ */
+
+function reopenDatabase() {
+  db = new Database(databasePath);
+  db.pragma("journal_mode = WAL");
+}
+
+function restoreDatabase(sourcePath) {
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    throw new Error("Backup file not found");
+  }
+
+  if (db.open) {
+    db.close();
+  }
+
+  for (const suffix of ["-wal", "-shm"]) {
+    const sidecarPath = databasePath + suffix;
+
+    if (fs.existsSync(sidecarPath)) {
+      fs.unlinkSync(sidecarPath);
+    }
+  }
+
+  fs.copyFileSync(sourcePath, databasePath);
+
+  reopenDatabase();
+
+  return true;
+}
+
+/*
+ * =========================================================
+ * START FRESH
+ * =========================================================
+ */
+
+function resetDatabase() {
+  db.exec("DELETE FROM task_updates");
+  db.exec("DELETE FROM tasks");
+  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('tasks', 'task_updates')");
+
+  return true;
+}
+
+/*
+ * =========================================================
  * EXPORTS
  * =========================================================
  */
 
 module.exports = {
   databasePath,
+
+  // Backup / Restore
+  backupDatabase,
+  restoreDatabase,
+  resetDatabase,
 
   // Tasks
   getTasks,

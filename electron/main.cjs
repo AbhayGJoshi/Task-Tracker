@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -15,6 +15,9 @@ const {
   addTaskUpdate,
   updateTaskUpdate,
   deleteTaskUpdate,
+  backupDatabase,
+  restoreDatabase,
+  resetDatabase,
 } = require("./database.cjs");
 
 let mainWindow;
@@ -91,6 +94,39 @@ ipcMain.handle("task-updates:update", (_event, { updateId, updateText }) => {
 
 ipcMain.handle("task-updates:delete", (_event, updateId) => {
   return deleteTaskUpdate(updateId);
+});
+
+ipcMain.handle("database:backup", () => {
+  return backupDatabase();
+});
+
+ipcMain.handle("database:restore", async () => {
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: "Select a backup database to restore",
+    properties: ["openFile"],
+    filters: [
+      {
+        name: "SQLite Database",
+        extensions: ["db", "sqlite", "sqlite3"],
+      },
+    ],
+  });
+
+  if (selection.canceled || selection.filePaths.length === 0) {
+    return { canceled: true, restored: false };
+  }
+
+  try {
+    restoreDatabase(selection.filePaths[0]);
+    return { canceled: false, restored: true, path: selection.filePaths[0] };
+  } catch (error) {
+    console.error("Failed to restore database:", error);
+    return { canceled: false, restored: false, error: String(error) };
+  }
+});
+
+ipcMain.handle("database:reset", () => {
+  return resetDatabase();
 });
 
 /*

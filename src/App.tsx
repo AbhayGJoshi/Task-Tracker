@@ -34,6 +34,10 @@ function App() {
       return "light";
     }
   });
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
+  const [dataMessage, setDataMessage] = useState("");
+  const [confirmingFresh, setConfirmingFresh] = useState(false);
 
   useEffect(() => {
     async function loadTasks() {
@@ -411,6 +415,72 @@ function App() {
     } catch (error) {
       console.error("Failed to delete task:", error);
     }
+  }
+
+  async function handleBackup() {
+    if (backingUp) {
+      return;
+    }
+
+    setBackingUp(true);
+    setBackupMessage("");
+
+    try {
+      const backupPath = await window.taskAPI.backupDatabase();
+      setBackupMessage(`Backup saved to ${backupPath}`);
+    } catch (error) {
+      console.error("Failed to back up database:", error);
+      setBackupMessage("Backup failed. Please try again.");
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
+  async function handleRestore() {
+    setDataMessage("");
+
+    try {
+      const result = await window.taskAPI.restoreDatabase();
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (result.restored) {
+        const refreshedTasks = await window.taskAPI.getTasks();
+        setTasks(refreshedTasks);
+        setUpdates([]);
+        setDataMessage("Database restored successfully.");
+      } else {
+        setDataMessage(
+          result.error
+            ? `Restore failed: ${result.error}`
+            : "Restore failed. Please try again.",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to restore database:", error);
+      setDataMessage("Restore failed. Please try again.");
+    }
+  }
+
+  async function confirmFreshStart() {
+    try {
+      const success = await window.taskAPI.resetDatabase();
+
+      if (success) {
+        setTasks([]);
+        setUpdates([]);
+        setDataMessage("Started fresh with empty entries.");
+      } else {
+        setDataMessage("Could not start fresh. Please try again.");
+      }
+    } catch (error) {
+      console.error("Failed to reset database:", error);
+      setDataMessage("Could not start fresh. Please try again.");
+    }
+
+    setConfirmingFresh(false);
   }
 
   function formatDate(dateString: string) {
@@ -1168,7 +1238,7 @@ function App() {
             <div className="modal-header">
               <div>
                 <h2>Settings</h2>
-                <p>Customize the appearance</p>
+                <p>Appearance and data</p>
               </div>
 
               <button
@@ -1182,28 +1252,110 @@ function App() {
             <div className="form-group">
               <label>Theme</label>
 
-              <div className="theme-options">
+              <div className="theme-toggle-row">
+                <span>Light</span>
+
                 <button
-                  className={`theme-option ${theme === "light" ? "active" : ""}`}
-                  onClick={() => setTheme("light")}
+                  className={`theme-switch ${theme === "dark" ? "active" : ""}`}
+                  role="switch"
+                  aria-checked={theme === "dark"}
+                  aria-label="Toggle dark theme"
+                  onClick={() =>
+                    setTheme(theme === "dark" ? "light" : "dark")
+                  }
                 >
-                  <span className="theme-swatch theme-swatch-light" />
-                  Light
+                  <span className="theme-switch-knob" />
+                </button>
+
+                <span>Dark</span>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Database Backup</label>
+
+              <button
+                className="backup-button"
+                onClick={handleBackup}
+                disabled={backingUp}
+              >
+                {backingUp ? "Backing up..." : "Back up database"}
+              </button>
+
+              {backupMessage && (
+                <small className="form-help">{backupMessage}</small>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>Restore / Fresh Start</label>
+
+              <div className="settings-row-buttons">
+                <button className="backup-button" onClick={handleRestore}>
+                  Restore backup
                 </button>
 
                 <button
-                  className={`theme-option ${theme === "dark" ? "active" : ""}`}
-                  onClick={() => setTheme("dark")}
+                  className="backup-button danger"
+                  onClick={() => setConfirmingFresh(true)}
                 >
-                  <span className="theme-swatch theme-swatch-dark" />
-                  Dark
+                  Start fresh
                 </button>
               </div>
+
+              {dataMessage && (
+                <small className="form-help">{dataMessage}</small>
+              )}
             </div>
 
             <div className="modal-actions">
               <button className="save-button" onClick={() => setShowSettings(false)}>
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmingFresh && (
+        <div className="modal-overlay" onClick={() => setConfirmingFresh(false)}>
+          <div
+            className="modal delete-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>Start Fresh</h2>
+                <p>Remove all tasks and start over.</p>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() => setConfirmingFresh(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="delete-message">
+              <strong>Are you sure?</strong>
+
+              <p>
+                All current tasks and updates will be permanently deleted. This
+                action cannot be undone.
+              </p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="cancel-button"
+                onClick={() => setConfirmingFresh(false)}
+              >
+                Cancel
+              </button>
+
+              <button className="delete-button" onClick={confirmFreshStart}>
+                Start Fresh
               </button>
             </div>
           </div>

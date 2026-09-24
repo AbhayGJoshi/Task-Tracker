@@ -170,52 +170,81 @@ select {
   color: #1f2937;
 }
 
-.theme-options {
-  display: flex;
-  gap: 12px;
-}
-
-.theme-option {
+.theme-toggle-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
-  padding: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.theme-switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #e5e7eb;
+  padding: 0;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   background: white;
-  color: #1f2937;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform .15s ease;
+}
+
+.theme-switch.active {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.theme-switch.active .theme-switch-knob {
+  transform: translateX(24px);
+}
+
+.backup-button {
+  padding: 11px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color .15s ease, background .15s ease;
 }
 
-.theme-option:hover {
+.backup-button:hover {
   background: #f9fafb;
 }
 
-.theme-option.active {
-  border-color: #2563eb;
-  background: #eff6ff;
-  color: #2563eb;
+.backup-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.theme-swatch {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid #cbd5e1;
-  flex-shrink: 0;
+.settings-row-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.theme-swatch-light {
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+.backup-button.danger {
+  border-color: #fecdd3;
+  color: #dc2626;
 }
 
-.theme-swatch-dark {
-  background: #0f172a;
+.backup-button.danger:hover {
+  background: #fff1f2;
 }
 
 .welcome {
@@ -1509,18 +1538,39 @@ html[data-theme="dark"] .filter-button.active {
   border-color: #e2e8f0;
 }
 
-html[data-theme="dark"] .theme-option {
-  background: #1e293b;
-  border-color: #334155;
+html[data-theme="dark"] .theme-toggle-row {
   color: #e2e8f0;
 }
 
-html[data-theme="dark"] .theme-option:hover {
+html[data-theme="dark"] .theme-switch {
+  background: #334155;
+  border-color: #475569;
+}
+
+html[data-theme="dark"] .theme-switch-knob {
+  background: #e2e8f0;
+}
+
+html[data-theme="dark"] .theme-switch.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+html[data-theme="dark"] .backup-button {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .backup-button:hover {
   background: #334155;
 }
 
-html[data-theme="dark"] .theme-option.active {
-  background: #162230;
-  border-color: #3b82f6;
-  color: #93c5fd;
+html[data-theme="dark"] .backup-button.danger {
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+html[data-theme="dark"] .backup-button.danger:hover {
+  background: #450f0f;
 }

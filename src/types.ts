@@ -61,6 +61,17 @@ declare global {
       ) => Promise<TaskUpdate | null>;
 
       deleteTaskUpdate: (updateId: number) => Promise<boolean>;
+
+      backupDatabase: () => Promise<string>;
+
+      restoreDatabase: () => Promise<{
+        canceled: boolean;
+        restored: boolean;
+        path?: string;
+        error?: string;
+      }>;
+
+      resetDatabase: () => Promise<boolean>;
     };
   }
 }
