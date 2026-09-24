@@ -46,7 +46,8 @@
       "package.json"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

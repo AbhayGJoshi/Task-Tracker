@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs");
 
 const {
   getTasks,
@@ -19,11 +20,14 @@ const {
 let mainWindow;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, "..", "build", "icon.ico");
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
 
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
