@@ -23,6 +23,17 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState<Priority | null>(null);
   const [taskSearch, setTaskSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "All">("All");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      return window.localStorage.getItem("task-tracker-theme") === "dark"
+        ? "dark"
+        : "light";
+    } catch {
+      return "light";
+    }
+  });
 
   useEffect(() => {
     async function loadTasks() {
@@ -39,19 +50,29 @@ function App() {
     loadTasks();
   }, []);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+
+    try {
+      window.localStorage.setItem("task-tracker-theme", theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
   const totalTasks = tasks.length;
 
   const pendingTasks = tasks.filter((task) => !task.completed).length;
 
   const completedTasks = tasks.filter((task) => task.completed).length;
 
-  // Keep active work at the top and completed work at the bottom.
-  // Within the same status, newer tasks remain first.
+  // Keep active work at the top and completed work at the
+  // bottom. Within the same status, most recently updated first.
   const statusOrder: Record<TaskStatus, number> = {
-    Pending: 1,
-    "In Progress": 2,
-    Cancelled: 3,
-    Completed: 4,
+    "In Progress": 1,
+    Pending: 2,
+    Completed: 3,
+    Cancelled: 4,
   };
 
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -59,6 +80,13 @@ function App() {
 
     if (statusDifference !== 0) {
       return statusDifference;
+    }
+
+    const updatedDifference =
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+
+    if (updatedDifference !== 0) {
+      return updatedDifference;
     }
 
     return b.id - a.id;
@@ -71,6 +99,11 @@ function App() {
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-CA");
   }
 
+  function matchesSearch(task: Task) {
+    const query = taskSearch.trim().toLowerCase();
+    return !query || task.title.toLowerCase().includes(query);
+  }
+
   const visibleTasks = sortedTasks.filter((task) => {
     if (activeView === "Today" && taskDateKey(task.due_date || "") !== todayKey) {
       return false;
@@ -79,10 +112,20 @@ function App() {
     if (activeView === "Tasks") {
       if (categoryFilter && task.priority !== categoryFilter) return false;
       if (statusFilter !== "All" && task.status !== statusFilter) return false;
-      if (taskSearch.trim() && !task.title.toLowerCase().includes(taskSearch.trim().toLowerCase())) return false;
     }
 
-    return true;
+    return matchesSearch(task);
+  });
+
+  const tasksViewTasks = [...visibleTasks].sort((a, b) => {
+    const createdDifference =
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+
+    if (createdDifference !== 0) {
+      return createdDifference;
+    }
+
+    return a.id - b.id;
   });
 
   const viewTitles = {
@@ -387,6 +430,149 @@ function App() {
     });
   }
 
+  function renderTaskCard(task: Task) {
+    return (
+      <div
+        className={`task-card ${task.completed ? "completed" : ""}`}
+        key={task.id}
+      >
+        <button
+          className="task-check"
+          onClick={() => toggleTask(task.id)}
+          aria-label={`Mark ${task.title} as ${
+            task.completed ? "pending" : "completed"
+          }`}
+        >
+          {task.completed ? "✓" : ""}
+        </button>
+
+        <div className="task-details">
+          <h3>{task.title}</h3>
+
+          <span className={`priority ${task.priority.toLowerCase()}`}>
+            {task.priority}
+          </span>
+          <select
+            className={`status-select status-${task.status
+              .toLowerCase()
+              .replace(" ", "-")}`}
+            value={task.status}
+            onChange={(event) =>
+              changeStatus(task.id, event.target.value as TaskStatus)
+            }
+          >
+            <option value="Pending">Pending</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+
+          <div className="task-meta">
+            <span>
+              📅 Due:{" "}
+              {task.due_date
+                ? new Date(
+                    task.due_date + "T00:00:00",
+                  ).toLocaleDateString()
+                : "No due date"}
+            </span>
+
+            <span>
+              🕐 Created:{" "}
+              {formatDate(task.created_at)}
+            </span>
+
+            <span>
+              🔄 Updated:{" "}
+              {formatDate(task.updated_at)}
+            </span>
+          </div>
+
+          {task.latest_update_text && (
+            <div className="latest-update-preview">
+              <span className="latest-update-label">↻</span>
+              <span className="latest-update-text">
+                {task.latest_update_text}
+              </span>
+              {task.latest_update_created_at && (
+                <span className="latest-update-date">
+                  {formatDate(task.latest_update_created_at)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="task-menu-container">
+          <button
+            className="more-button"
+            onClick={() =>
+              setOpenMenuId(openMenuId === task.id ? null : task.id)
+            }
+          >
+            •••
+          </button>
+
+          {openMenuId === task.id && (
+            <div className="task-menu">
+              <button
+                onClick={() => {
+                  setEditingTask(task);
+                  setOpenMenuId(null);
+                }}
+              >
+                ✏ Edit
+              </button>
+
+              <button
+                className="delete-menu-item"
+                onClick={() => {
+                  setDeletingTask(task);
+                  setOpenMenuId(null);
+                }}
+              >
+                🗑 Delete
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="task-updates-column">
+          <button
+            className="updates-button"
+            onClick={() => openUpdates(task)}
+          >
+            📝 Updates
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderCategorySection(category: Priority) {
+    const categoryTasks = sortedTasks.filter(
+      (task) => task.priority === category && matchesSearch(task),
+    );
+
+    return (
+      <section className="category-section" key={category}>
+        <div className="category-section-header">
+          <h3>{category} priority</h3>
+          <span>
+            {categoryTasks.length} task{categoryTasks.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="task-list">
+          {categoryTasks.length === 0 ? (
+            <p>No {category.toLowerCase()} priority tasks yet.</p>
+          ) : (
+            categoryTasks.map((task) => renderTaskCard(task))
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -410,6 +596,7 @@ function App() {
                 setCategoryFilter(null);
                 setStatusFilter("All");
                 setTaskSearch("");
+                setShowSearch(false);
               }}
             >
               <span>{icon}</span>
@@ -427,8 +614,34 @@ function App() {
           </div>
 
           <div className="topbar-actions">
-            <button className="icon-button">⌕</button>
-            <button className="icon-button">⚙</button>
+            {showSearch && (
+              <input
+                className="task-search topbar-search"
+                type="search"
+                placeholder="Search by task name..."
+                value={taskSearch}
+                onChange={(event) => setTaskSearch(event.target.value)}
+                autoFocus
+              />
+            )}
+
+            <button
+              className={`icon-button ${showSearch || taskSearch ? "active" : ""}`}
+              onClick={() => setShowSearch((visible) => !visible)}
+              aria-label="Toggle search"
+              title="Search tasks"
+            >
+              ⌕
+            </button>
+
+            <button
+              className="icon-button"
+              onClick={() => setShowSettings(true)}
+              aria-label="Settings"
+              title="Settings"
+            >
+              ⚙
+            </button>
           </div>
         </header>
 
@@ -467,7 +680,7 @@ function App() {
           <div className="section-header">
             <div>
               <h2>{activeView === "Dashboard" ? "Today's Tasks" : viewTitles[activeView]}</h2>
-              <p>{activeView === "Today" ? "Only tasks with a due date of today" : activeView === "Categories" ? "Browse tasks by priority" : categoryFilter ? `${categoryFilter} priority tasks` : activeView === "Tasks" ? "Your complete task list" : "A quick overview of your work"}</p>
+              <p>{activeView === "Today" ? "Only tasks with a due date of today" : activeView === "Categories" ? (categoryFilter ? `${categoryFilter} priority tasks` : "Browse tasks by priority") : categoryFilter ? `${categoryFilter} priority tasks` : activeView === "Tasks" ? "Your complete task list" : "A quick overview of your work"}</p>
             </div>
 
             <button
@@ -496,13 +709,6 @@ function App() {
                   </button>
                 ))}
               </div>
-              <input
-                className="task-search"
-                type="search"
-                placeholder="Search tasks..."
-                value={taskSearch}
-                onChange={(event) => setTaskSearch(event.target.value)}
-              />
             </div>
           )}
 
@@ -510,139 +716,38 @@ function App() {
             {loading ? (
               <p>Loading tasks...</p>
             ) : activeView === "Categories" ? (
-              <div className="category-grid">
-                {(["High", "Medium", "Low"] as Priority[]).map((category) => {
-                  const categoryTasks = sortedTasks.filter((task) => task.priority === category);
-                  return (
-                    <button className={`category-card category-${category.toLowerCase()}`} key={category} onClick={() => {
-                        setCategoryFilter(category);
-                        setActiveView("Tasks");
-                      }}>
-                      <span>{category}</span>
-                      <strong>{categoryTasks.length}</strong>
-                      <small>priority tasks</small>
-                    </button>
-                  );
-                })}
+              <div className="category-layout">
+                <div className="category-grid">
+                  {(["High", "Medium", "Low"] as Priority[]).map((category) => {
+                    const categoryTasks = sortedTasks.filter((task) => task.priority === category);
+                    return (
+                      <button
+                        className={`category-card category-${category.toLowerCase()} ${
+                          categoryFilter === category ? "active" : ""
+                        }`}
+                        key={category}
+                        onClick={() => {
+                          setCategoryFilter(categoryFilter === category ? null : category);
+                        }}
+                      >
+                        <span>{category}</span>
+                        <strong>{categoryTasks.length}</strong>
+                        <small>priority tasks</small>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {categoryFilter
+                  ? renderCategorySection(categoryFilter)
+                  : (["High", "Medium", "Low"] as Priority[]).map((category) =>
+                      renderCategorySection(category),
+                    )}
               </div>
             ) : visibleTasks.length === 0 ? (
               <p>{tasks.length === 0 ? "No tasks yet. Add your first task." : "No tasks match this view."}</p>
             ) : (
-              visibleTasks.map((task) => (
-                <div
-                  className={`task-card ${task.completed ? "completed" : ""}`}
-                  key={task.id}
-                >
-                  <button
-                    className="task-check"
-                    onClick={() => toggleTask(task.id)}
-                    aria-label={`Mark ${task.title} as ${
-                      task.completed ? "pending" : "completed"
-                    }`}
-                  >
-                    {task.completed ? "✓" : ""}
-                  </button>
-
-                  <div className="task-details">
-                    <h3>{task.title}</h3>
-
-                    <span className={`priority ${task.priority.toLowerCase()}`}>
-                      {task.priority}
-                    </span>
-                    <select
-                      className={`status-select status-${task.status
-                        .toLowerCase()
-                        .replace(" ", "-")}`}
-                      value={task.status}
-                      onChange={(event) =>
-                        changeStatus(task.id, event.target.value as TaskStatus)
-                      }
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-
-                    <div className="task-meta">
-                      <span>
-                        📅 Due:{" "}
-                        {task.due_date
-                          ? new Date(
-                              task.due_date + "T00:00:00",
-                            ).toLocaleDateString()
-                          : "No due date"}
-                      </span>
-
-                      <span>
-                        🕐 Created:{" "}
-                        {formatDate(task.created_at)}
-                      </span>
-
-                      <span>
-                        🔄 Updated:{" "}
-                        {formatDate(task.updated_at)}
-                      </span>
-                    </div>
-
-                    {task.latest_update_text && (
-                      <div className="latest-update-preview">
-                        <span className="latest-update-label">↻</span>
-                        <span className="latest-update-text">
-                          {task.latest_update_text}
-                        </span>
-                        {task.latest_update_created_at && (
-                          <span className="latest-update-date">
-                            {formatDate(task.latest_update_created_at)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="task-menu-container">
-                    <button
-                      className="more-button"
-                      onClick={() =>
-                        setOpenMenuId(openMenuId === task.id ? null : task.id)
-                      }
-                    >
-                      •••
-                    </button>
-
-                    {openMenuId === task.id && (
-                      <div className="task-menu">
-                        <button
-                          onClick={() => {
-                            setEditingTask(task);
-                            setOpenMenuId(null);
-                          }}
-                        >
-                          ✏ Edit
-                        </button>
-
-                        <button
-                          className="delete-menu-item"
-                          onClick={() => {
-                            setDeletingTask(task);
-                            setOpenMenuId(null);
-                          }}
-                        >
-                          🗑 Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="task-updates-column">
-                    <button
-                      className="updates-button"
-                      onClick={() => openUpdates(task)}
-                    >
-                      📝 Updates
-                    </button>
-                  </div>
-                </div>
-              ))
+              (activeView === "Tasks" ? tasksViewTasks : visibleTasks).map((task) => renderTaskCard(task))
             )}
           </div>
         </section>
@@ -1048,6 +1153,57 @@ function App() {
 
               <button className="delete-button" onClick={confirmDeleteTask}>
                 Delete Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div
+            className="modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>Settings</h2>
+                <p>Customize the appearance</p>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() => setShowSettings(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label>Theme</label>
+
+              <div className="theme-options">
+                <button
+                  className={`theme-option ${theme === "light" ? "active" : ""}`}
+                  onClick={() => setTheme("light")}
+                >
+                  <span className="theme-swatch theme-swatch-light" />
+                  Light
+                </button>
+
+                <button
+                  className={`theme-option ${theme === "dark" ? "active" : ""}`}
+                  onClick={() => setTheme("dark")}
+                >
+                  <span className="theme-swatch theme-swatch-dark" />
+                  Dark
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="save-button" onClick={() => setShowSettings(false)}>
+                Done
               </button>
             </div>
           </div>

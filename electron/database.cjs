@@ -137,12 +137,13 @@ function getTasks() {
       FROM tasks
       ORDER BY
         CASE status
-          WHEN 'Pending' THEN 1
-          WHEN 'In Progress' THEN 2
-          WHEN 'Cancelled' THEN 3
-          WHEN 'Completed' THEN 4
+          WHEN 'In Progress' THEN 1
+          WHEN 'Pending' THEN 2
+          WHEN 'Completed' THEN 3
+          WHEN 'Cancelled' THEN 4
           ELSE 5
         END,
+        updated_at DESC,
         id DESC
     `,
     )
